@@ -1,15 +1,21 @@
 name: WOP 排行榜自動爬蟲
 
-# 設定觸發條件
 on:
   schedule:
-    # 每天台灣時間凌晨 4 點自動執行 (cron 使用 UTC 時間，台灣時間減 8 小時)
     - cron: '0 20 * * *' 
-  workflow_dispatch: # 這個設定會讓你在 GitHub 介面上多出一個「手動執行」的按鈕
+  workflow_dispatch: 
 
 jobs:
   run-crawler:
     runs-on: ubuntu-latest
+    
+    # 權限設定 (確保能存入 TSV)
+    permissions:
+      contents: write
+
+    # === 新增：強制使用最新的 Node.js 24 環境，消除系統警告 ===
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: 取得程式碼
@@ -31,6 +37,5 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add data.js *.tsv
-          # 如果沒有檔案變動就不 commit，避免報錯
           git diff --quiet && git diff --staged --quiet || git commit -m "Auto-update: 排行榜資料更新"
           git push
