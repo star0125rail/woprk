@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>波拉西亞戰記 - 戰力排行榜</title>
+    <style>
+        /* 深色主題與基礎排版設定 */
+        body {
+            background-color: #1a1b26;
+            color: #c0caf5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        h2 {
+            text-align: center;
+            color: #ffffff;
+            letter-spacing: 2px;
+        }
+        /* 表格樣式設計 */
+        table {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-collapse: collapse;
+            background-color: #24283b;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #1f2335;
+        }
+        th {
+            background-color: #1f2335;
+            color: #7aa2f7;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        tr:hover {
+            background-color: #2f334d; 
+        }
+        /* 前三名徽章樣式 */
+        .rank-badge {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            border-radius: 50%;
+            background-color: #414868;
+            color: #fff;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .rank-1 { background-color: #ffc72c; color: #000; box-shadow: 0 0 8px #ffc72c; }
+        .rank-2 { background-color: #c0c0c0; color: #000; box-shadow: 0 0 8px #c0c0c0; }
+        .rank-3 { background-color: #cd7f32; color: #fff; box-shadow: 0 0 8px #cd7f32; }
+        /* 伺服器標籤樣式 */
+        .server-tag {
+            background-color: #0db9d7;
+            color: #000;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        /* 職業名稱高亮 */
+        .class-name { color: #bb9af7; }
+        /* 玩家名稱與經驗值高亮 */
+        .player-name { color: #ffffff; font-weight: bold; }
+        .exp-text { color: #9ece6a; } /* 給經驗值加個柔和的綠色 */
+    </style>
+</head>
+<body>
+
+    <h2>🏆 波拉西亞戰記排行榜</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>排名</th>
+                <th>角色名稱</th>
+                <th>公會</th>
+                <th>職業</th>
+                <th>等級</th>
+                <th>經驗值</th>
+                <th>伺服器</th>
+            </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+            </tbody>
+    </table>
+
+    <script src="data.js"></script>
+
+    <script>
+        function formatExperience(expValue) {
+            const num = Number(expValue);
+            if (isNaN(num)) return expValue; 
+
+            if (num >= 1000000000000) {
+                const zhao = Math.floor(num / 1000000000000); 
+                const remainder = num % 1000000000000;        
+                const yi = (remainder / 100000000).toFixed(2); 
+                return `${zhao}兆${yi}億`;
+            } else if (num >= 100000000) {
+                const yi = (num / 100000000).toFixed(2);
+                return `${yi}億`;
+            } else if (num >= 10000) {
+                const wan = (num / 10000).toFixed(2);
+                return `${wan}萬`;
+            } else {
+                return num.toString();
+            }
+        }
+
+        const tbody = document.getElementById('leaderboard-body');
+
+        // === 新增 1：將所有玩家依照經驗值 (gc_exp) 由高到低進行「全服排序」 ===
+        woprkData.sort((a, b) => Number(b.gc_exp) - Number(a.gc_exp));
+
+        // === 新增 2：排序完後，重新賦予他們 1 ~ N 的「全服名次」 ===
+        woprkData.forEach((player, index) => {
+            player.global_rank = index + 1;
+        });
+
+        // 取前 100 名顯示
+        const displayData = woprkData.slice(0, 100); 
+
+        displayData.forEach(player => {
+            const tr = document.createElement('tr');
+            
+            // 使用新的全服名次 (global_rank) 來顯示徽章
+            let rankHtml = `<span class="rank-badge">${player.global_rank}</span>`;
+            if (player.global_rank == 1) rankHtml = `<span class="rank-badge rank-1">1</span>`;
+            else if (player.global_rank == 2) rankHtml = `<span class="rank-badge rank-2">2</span>`;
+            else if (player.global_rank == 3) rankHtml = `<span class="rank-badge rank-3">3</span>`;
+
+            const formattedExp = formatExperience(player.gc_exp);
+            
+            // === 新增 3：處理 null 的情況，如果沒有伺服器名稱，先顯示預設文字 ===
+            let serverName = player.world_name;
+            if (!serverName || serverName === "null") {
+                serverName = "未知伺服器";
+            }
+
+            tr.innerHTML = `
+                <td>${rankHtml}</td>
+                <td class="player-name">${player.gc_name}</td>
+                <td>${player.guild_name || '-'}</td>
+                <td class="class-name">${player.class_name}</td>
+                <td>${player.gc_level}</td>
+                <td class="exp-text">${formattedExp}</td>
+                <td><span class="server-tag">${serverName}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    </script>
+</body>
+</html>
