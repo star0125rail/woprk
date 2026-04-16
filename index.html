@@ -12,69 +12,48 @@
             margin: 0;
             padding: 20px;
         }
-        h2 {
-            text-align: center;
-            color: #ffffff;
-            letter-spacing: 2px;
+        h2 { text-align: center; color: #ffffff; letter-spacing: 2px; }
+        .controls-container { max-width: 1200px; margin: 0 auto 15px auto; display: flex; justify-content: flex-end; }
+        #searchInput {
+            padding: 10px 15px; border-radius: 20px; border: 1px solid #414868;
+            background-color: #24283b; color: #c0caf5; width: 250px; outline: none;
         }
         table {
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            border-collapse: collapse;
-            background-color: #24283b;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            width: 100%; max-width: 1200px; margin: 0 auto; border-collapse: collapse;
+            background-color: #24283b; border-radius: 8px; overflow: hidden;
         }
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #1f2335;
-        }
-        th {
-            background-color: #1f2335;
-            color: #7aa2f7;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        tr:hover {
-            background-color: #2f334d; 
-        }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #1f2335; font-size: 14px; }
+        th { background-color: #1f2335; color: #7aa2f7; font-weight: bold; }
+        tr:hover { background-color: #2f334d; }
         .rank-badge {
-            display: inline-block;
-            width: 24px;
-            height: 24px;
-            line-height: 24px;
-            text-align: center;
-            border-radius: 50%;
-            background-color: #414868;
-            color: #fff;
-            font-weight: bold;
-            font-size: 14px;
+            display: inline-block; width: 26px; height: 26px; line-height: 26px;
+            text-align: center; border-radius: 50%; background-color: #414868;
+            color: #fff; font-weight: bold; font-size: 12px;
         }
-        .rank-1 { background-color: #ffc72c; color: #000; box-shadow: 0 0 8px #ffc72c; }
-        .rank-2 { background-color: #c0c0c0; color: #000; box-shadow: 0 0 8px #c0c0c0; }
-        .rank-3 { background-color: #cd7f32; color: #fff; box-shadow: 0 0 8px #cd7f32; }
-        .server-tag {
-            background-color: #0db9d7;
-            color: #000;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: bold;
-            display: inline-block;
-        }
+        .rank-1 { background-color: #ffc72c; color: #000; }
+        .rank-2 { background-color: #c0c0c0; color: #000; }
+        .rank-3 { background-color: #cd7f32; color: #fff; }
+        .server-tag { background-color: #0db9d7; color: #000; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; }
         .class-name { color: #bb9af7; }
         .player-name { color: #ffffff; font-weight: bold; }
         .exp-text { color: #9ece6a; }
-        /* 討伐欄位的特殊樣式（黃色加粗，類似階級感） */
         .grade-text { color: #e0af68; font-weight: bold; }
+        .gain-text { color: #7dcfff; font-weight: bold; }
+        /* 每小時經驗的顏色樣式 */
+        .hourly-text { color: #f7768e; font-size: 0.9em; }
+
+        .pagination { max-width: 1200px; margin: 20px auto; display: flex; justify-content: center; gap: 8px; }
+        .page-btn { background-color: #24283b; color: #c0caf5; border: 1px solid #414868; padding: 6px 10px; border-radius: 5px; cursor: pointer; }
+        .page-btn.active { background-color: #7aa2f7; color: #1a1b26; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <h2>🏆 波拉西亞戰記排行榜</h2>
+
+    <div class="controls-container">
+        <input type="text" id="searchInput" placeholder="🔍 搜尋玩家、公會、伺服器...">
+    </div>
 
     <table>
         <thead>
@@ -83,14 +62,17 @@
                 <th>角色名稱</th>
                 <th>公會</th>
                 <th>職業</th>
-                <th>討伐</th> <th>等級</th>
+                <th>討伐</th>
+                <th>等級</th>
                 <th>經驗值</th>
+                <th>每小時經驗</th> <th>24H 預估</th>
                 <th>伺服器</th>
             </tr>
         </thead>
-        <tbody id="leaderboard-body">
-        </tbody>
+        <tbody id="leaderboard-body"></tbody>
     </table>
+
+    <div id="pagination" class="pagination"></div>
 
     <script src="data.js"></script>
 
@@ -99,54 +81,81 @@
             const num = Number(expValue);
             if (isNaN(num)) return expValue; 
             if (num >= 1000000000000) {
-                const zhao = Math.floor(num / 1000000000000); 
-                const remainder = num % 1000000000000;        
-                const yi = (remainder / 100000000).toFixed(2); 
-                return `${zhao}兆${yi}億`;
+                return `${Math.floor(num / 1000000000000)}兆${((num % 1000000000000) / 100000000).toFixed(2)}億`;
             } else if (num >= 100000000) {
-                const yi = (num / 100000000).toFixed(2);
-                return `${yi}億`;
+                return `${(num / 100000000).toFixed(2)}億`;
             } else if (num >= 10000) {
-                const wan = (num / 10000).toFixed(2);
-                return `${wan}萬`;
-            } else {
-                return num.toString();
+                return `${(num / 10000).toFixed(2)}萬`;
+            }
+            return num.toString();
+        }
+
+        woprkData.sort((a, b) => Number(b.gc_exp) - Number(a.gc_exp));
+        woprkData.forEach((player, index) => { player.global_rank = index + 1; });
+
+        const top300Data = woprkData.slice(0, 300);
+        let currentPage = 1;
+        const rowsPerPage = 50;
+        let currentDisplayData = [...top300Data];
+
+        function renderTable() {
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const pageData = currentDisplayData.slice(startIndex, startIndex + rowsPerPage);
+
+            pageData.forEach(player => {
+                const tr = document.createElement('tr');
+                let rankClass = player.global_rank <= 3 ? `rank-${player.global_rank}` : '';
+                
+                // 處理增量顯示
+                let hourlyHtml = player.hourly_gain > 0 ? `+${formatExperience(player.hourly_gain)}` : '-';
+                let dailyHtml = player.exp_gain > 0 ? `+${formatExperience(player.exp_gain)}` : '-';
+
+                tr.innerHTML = `
+                    <td><span class="rank-badge ${rankClass}">${player.global_rank}</span></td>
+                    <td class="player-name">${player.gc_name}</td>
+                    <td>${player.guild_name || '-'}</td>
+                    <td class="class-name">${player.class_name}</td>
+                    <td class="grade-text">${player.grade || '-'}</td>
+                    <td>${player.gc_level}</td>
+                    <td class="exp-text">${formatExperience(player.gc_exp)}</td>
+                    <td class="hourly-text">${hourlyHtml}</td> <td class="gain-text">${dailyHtml}</td>
+                    <td><span class="server-tag">${player.world_name}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderPagination() {
+            const container = document.getElementById('pagination');
+            container.innerHTML = '';
+            const totalPages = Math.ceil(currentDisplayData.length / rowsPerPage);
+            if (totalPages <= 1) return;
+
+            for (let i = 1; i <= totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+                btn.innerText = i;
+                btn.onclick = () => { currentPage = i; updateView(); };
+                container.appendChild(btn);
             }
         }
 
-        const tbody = document.getElementById('leaderboard-body');
+        function updateView() { renderTable(); renderPagination(); }
 
-        // 全服經驗值排序
-        woprkData.sort((a, b) => Number(b.gc_exp) - Number(a.gc_exp));
-
-        // 重新賦予全服名次
-        woprkData.forEach((player, index) => {
-            player.global_rank = index + 1;
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            currentDisplayData = top300Data.filter(p => 
+                p.gc_name.toLowerCase().includes(term) || 
+                (p.guild_name && p.guild_name.toLowerCase().includes(term)) ||
+                p.world_name.toLowerCase().includes(term)
+            );
+            currentPage = 1;
+            updateView();
         });
 
-        const displayData = woprkData.slice(0, 100); 
-
-        displayData.forEach(player => {
-            const tr = document.createElement('tr');
-            
-            let rankHtml = `<span class="rank-badge">${player.global_rank}</span>`;
-            if (player.global_rank == 1) rankHtml = `<span class="rank-badge rank-1">1</span>`;
-            else if (player.global_rank == 2) rankHtml = `<span class="rank-badge rank-2">2</span>`;
-            else if (player.global_rank == 3) rankHtml = `<span class="rank-badge rank-3">3</span>`;
-
-            const formattedExp = formatExperience(player.gc_exp);
-
-            tr.innerHTML = `
-                <td>${rankHtml}</td>
-                <td class="player-name">${player.gc_name}</td>
-                <td>${player.guild_name || '-'}</td>
-                <td class="class-name">${player.class_name}</td>
-                <td class="grade-text">${player.grade || '-'}</td> <td>${player.gc_level}</td>
-                <td class="exp-text">${formattedExp}</td>
-                <td><span class="server-tag">${player.world_name}</span></td>
-            `;
-            tbody.appendChild(tr);
-        });
+        updateView();
     </script>
 </body>
 </html>
