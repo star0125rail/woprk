@@ -8,6 +8,7 @@
 import json
 import csv
 import os
+import glob
 from datetime import datetime, timezone, timedelta
 
 import httpx
@@ -99,13 +100,13 @@ if __name__ == "__main__":
     # ==========================
     # 步驟 3：輸出 TSV 檔案並自動處理重複檔名
     # ==========================
-    # 設定時區為 UTC+8 (台灣時間)
     tw_tz = timezone(timedelta(hours=8))
-    today_str = datetime.now(tw_tz).strftime("%m%d")
+    now = datetime.now(tw_tz)
     
+    # 依照你的需求，將檔名格式改為 YYYYMMDDHH (例如: 2024041615)
+    today_str = now.strftime("%Y%m%d%H")
     base_file_name = f"woprk_{today_str}"
     
-    # 呼叫自動編號函式
     output_file = get_unique_filename(base_file_name, ".tsv")
 
     with open(output_file, "w", newline="", encoding="utf-8") as tsvfile:
@@ -118,26 +119,82 @@ if __name__ == "__main__":
     print(f"👉 原始備份：{json_output}")
 
     # ==========================
-    # 步驟 4：輸出給網頁用的 JS 資料檔
+    # 步驟 4：計算「預估日增經驗」並輸出給網頁用的 JS 資料檔
     # ==========================
-    # 將 rows (列表陣列) 轉換為帶有鍵值的字典陣列，方便網頁 JavaScript 讀取
+    tsv_files = glob.glob("woprk_*.tsv")
+    tsv_files.sort(key=os.path.getmtime, reverse=True)
+    
+    prev_tsv_file = None
+    for f in tsv_files:
+        if f != output_file:
+            prev_tsv_file = f
+            break
+
+    prev_exp_map = {}
+    hours_diff = 24.0 # 預設值
+
+    if prev_tsv_file:
+        print(f"👉 找到歷史紀錄：{prev_tsv_file}，開始計算時薪與預估日增經驗...")
+        
+        # 這裡我們用一個更聰明的方法：直接抓取檔案的「實際修改時間(秒)」來計算
+        # 這樣就算舊檔名不是 YYYYMMDDHH 也不會報錯，且能精確到小數點
+        prev_time_ts = os.path.getmtime(prev_tsv_file)
+        current_time_ts = datetime.now(tw_tz).timestamp()
+        
+        # 計算相差幾小時
+        hours_diff = (current_time_ts - prev_time_ts) / 3600.0
+        
+        # 安全機制：如果兩次執行時間相隔不到 6 分鐘(0.1小時)，設為 0.1 以避免數字暴增或除以零
+        if hours_diff < 0.1:
+            hours_diff = 0.1
+            
+        with open(prev_tsv_file, "r", encoding="utf-8") as f:
+            reader = csv.reader(f, delimiter="\t")
+            next(reader, None)
+            for row in reader:
+                if len(row) >= 4:
+                    try:
+                        prev_exp_map[row[1]] = int(row[3])
+                    except ValueError:
+                        pass
+    else:
+        print("👉 未找到歷史紀錄，將無法計算本次經驗值增長。")
+
     web_data = []
     for r in rows:
+        gc_name = r[1]
+        try:
+            current_exp = int(r[3])
+        except ValueError:
+            current_exp = 0
+            
+        prev_exp = prev_exp_map.get(gc_name, current_exp)
+        exp_diff = current_exp - prev_exp
+
+        # === 核心運算：時薪回推日薪 ===
+        if exp_diff > 0:
+            hourly_gain = exp_diff / hours_diff
+            daily_gain_estimate = int(hourly_gain * 24)
+        else:
+            hourly_gain = 0
+            daily_gain_estimate = 0
+
         web_data.append({
             "world_name": r[0],
-            "gc_name": r[1],
+            "gc_name": gc_name,
             "gc_level": r[2],
-            "gc_exp": r[3],
+            "gc_exp": str(current_exp),
             "ranking": r[4],
             "guild_name": r[5],
             "grade": r[6],
-            "class_name": r[7]
+            "class_name": r[7],
+            "exp_gain": daily_gain_estimate,
+            "hourly_gain": int(hourly_gain)  # 【新增】每小時經驗欄位
         })
     
     js_output_file = "data.js"
     with open(js_output_file, "w", encoding="utf-8") as js_file:
-        # 將資料寫成 JavaScript 變數的形式
         json_str = json.dumps(web_data, ensure_ascii=False)
         js_file.write(f"const woprkData = {json_str};")
         
-    print(f"👉 網頁資料已輸出為：{js_output_file}")
+    print(f"👉 網頁資料已輸出為：{js_output_file} (與上次比較間隔：{hours_diff:.2f} 小時)")
