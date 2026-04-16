@@ -99,7 +99,10 @@ if __name__ == "__main__":
     # ==========================
     # 步驟 3：輸出 TSV 檔案並自動處理重複檔名
     # ==========================
-    today_str = datetime.now().strftime("%m%d")
+    # 設定時區為 UTC+8 (台灣時間)
+    tw_tz = timezone(timedelta(hours=8))
+    today_str = datetime.now(tw_tz).strftime("%m%d")
+    
     base_file_name = f"woprk_{today_str}"
     
     # 呼叫自動編號函式
