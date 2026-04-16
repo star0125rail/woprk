@@ -9,6 +9,7 @@ import json
 import csv
 import os
 import glob
+import re
 from datetime import datetime, timezone, timedelta
 
 import httpx
@@ -121,8 +122,9 @@ if __name__ == "__main__":
     # ==========================
     # 步驟 4：計算「預估日增經驗」並輸出給網頁用的 JS 資料檔
     # ==========================
+    # 1. 取得 TSV 列表，改用「檔名」本身來做字母反向排序，確保最新時間在最前面
     tsv_files = glob.glob("woprk_*.tsv")
-    tsv_files.sort(key=os.path.getmtime, reverse=True)
+    tsv_files.sort(reverse=True) 
     
     prev_tsv_file = None
     for f in tsv_files:
@@ -131,20 +133,26 @@ if __name__ == "__main__":
             break
 
     prev_exp_map = {}
-    hours_diff = 24.0 # 預設值
+    hours_diff = 24.0 # 預設為相差 24 小時
 
     if prev_tsv_file:
-        print(f"👉 找到歷史紀錄：{prev_tsv_file}，開始計算時薪與預估日增經驗...")
+        print(f"👉 找到歷史紀錄：{prev_tsv_file}，開始計算時薪...")
         
-        # 這裡我們用一個更聰明的方法：直接抓取檔案的「實際修改時間(秒)」來計算
-        # 這樣就算舊檔名不是 YYYYMMDDHH 也不會報錯，且能精確到小數點
-        prev_time_ts = os.path.getmtime(prev_tsv_file)
-        current_time_ts = datetime.now(tw_tz).timestamp()
-        
-        # 計算相差幾小時
-        hours_diff = (current_time_ts - prev_time_ts) / 3600.0
-        
-        # 安全機制：如果兩次執行時間相隔不到 6 分鐘(0.1小時)，設為 0.1 以避免數字暴增或除以零
+        # 2. 利用正規表達式從檔名中萃取 YYYYMMDDHH (例如 woprk_2024041615)
+        match = re.search(r"woprk_(\d{10})", prev_tsv_file)
+        if match:
+            time_str = match.group(1)
+            try:
+                # 將字串轉換為台灣時間的 datetime 物件
+                prev_time = datetime.strptime(time_str, "%Y%m%d%H").replace(tzinfo=tw_tz)
+                current_time = datetime.now(tw_tz)
+                
+                # 計算精確的相差小時數
+                hours_diff = (current_time.timestamp() - prev_time.timestamp()) / 3600.0
+            except ValueError:
+                pass 
+                
+        # 避免連續點擊執行導致時間差過小，設定最低底線為 0.1 小時 (避免數字暴增)
         if hours_diff < 0.1:
             hours_diff = 0.1
             
@@ -159,6 +167,8 @@ if __name__ == "__main__":
                         pass
     else:
         print("👉 未找到歷史紀錄，將無法計算本次經驗值增長。")
+
+    # ----- 下方組合 web_data 的邏輯保持不變 -----
 
     web_data = []
     for r in rows:
